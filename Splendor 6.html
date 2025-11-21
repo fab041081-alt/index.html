@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Splendor 6.0 - Golden Arcade</title>
+<style>
+    body {
+        margin: 0;
+        background: radial-gradient(circle, #0a0a0f, #000000);
+        font-family: Arial, sans-serif;
+        color: #fff;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        height: 100vh;
+        overflow: hidden;
+    }
+
+    .game-box {
+        text-align: center;
+    }
+
+    h1 {
+        font-size: 42px;
+        background: linear-gradient(90deg, #ffcc00, #ff8800);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 10px;
+    }
+
+    #wheel {
+        width: 380px;
+        height: 380px;
+        border-radius: 50%;
+        border: 6px solid #ffcc0077;
+        box-shadow: 0 0 25px #ffcc0055, inset 0 0 25px #ff880055;
+        position: relative;
+        overflow: hidden;
+        transition: transform 4s cubic-bezier(0.25, 0.1, 0.25, 1);
+    }
+
+    .slice {
+        position: absolute;
+        width: 50%;
+        height: 50%;
+        top: 50%;
+        left: 50%;
+        transform-origin: 0% 0%;
+        background: rgba(255, 200, 0, 0.08);
+        border-left: 1px solid rgba(255, 204, 0, 0.12);
+    }
+
+    #pointer {
+        width: 0;
+        height: 0;
+        border-left: 22px solid transparent;
+        border-right: 22px solid transparent;
+        border-bottom: 30px solid #ffcc00;
+        position: absolute;
+        top: -15px;
+        left: calc(50% - 22px);
+        filter: drop-shadow(0 0 6px #ffcc00);
+    }
+
+    #result {
+        margin-top: 20px;
+        font-size: 26px;
+        text-shadow: 0 0 8px #ffaa00;
+    }
+</style>
+</head>
+<body>
+
+<div class="game-box">
+    <h1>SPLENDOR 6.0</h1>
+    <div id="pointer"></div>
+    <div id="wheel"></div>
+    <div id="result"></div>
+</div>
+
+<script>
+// Récompenses + Probabilités
+const rewards = [
+    {name: "Rien", weight: 878},
+    {name: "Petit cadeau", weight: 80},
+    {name: "Moyen cadeau", weight: 30},
+    {name: "Gros cadeau", weight: 10},
+    {name: "JACKPOT", weight: 2}
+];
+
+// Création Wheel
+const wheel = document.getElementById("wheel");
+const resultBox = document.getElementById("result");
+
+const sliceAngle = 360 / rewards.length;
+
+rewards.forEach((r, i) => {
+    const slice = document.createElement("div");
+    slice.className = "slice";
+    slice.style.transform = `rotate(${i * sliceAngle}deg) skewY(${90 - sliceAngle}deg)`;
+    wheel.appendChild(slice);
+});
+
+let spinning = false;
+
+function weightedRandom() {
+    let total = rewards.reduce((sum, r) => sum + r.weight, 0);
+    let rnd = Math.random() * total;
+    for (let r of rewards) {
+        if (rnd < r.weight) return r;
+        rnd -= r.weight;
+    }
+}
+
+function spinAutomatic(trigger="(auto)") {
+    if (spinning) return;
+    spinning = true;
+
+    const reward = weightedRandom();
+    const index = rewards.indexOf(reward);
+    const randomRotation = 360 * 6 + (sliceAngle * index) + (sliceAngle / 2);
+
+    wheel.style.transform = `rotate(${randomRotation}deg)`;
+
+    setTimeout(() => {
+        resultBox.textContent = `Résultat ${trigger} : ${reward.name}`;
+        spinning = false;
+    }, 4200);
+}
+
+// Connexion Tickfinity + cadeaux personnalisés
+function getSpinCountFromGift(giftName) {
+    const g = giftName.toLowerCase();
+    switch (g) {
+        case "rose": return 1;
+        case "rosa": return 10;
+        case "donut": return 30;
+        case "heart hands": return 100;
+        case "giraffe": return 1000;
+        case "squirrel": return 4000;
+        default: return 1;
+    }
+}
+
+const socket = new WebSocket("ws://localhost:8095");
+
+socket.onmessage = (event) => {
+    const data = JSON.parse(event.data);
+
+    if (data.type === "gift") {
+        const spins = getSpinCountFromGift(data.giftName || "");
+        for (let i = 0; i < spins; i++) {
+            setTimeout(() => spinAutomatic(`cadeau ${data.giftName}`), i * 500);
+        }
+    }
+};
+</script>
+
+</body>
+</html>
